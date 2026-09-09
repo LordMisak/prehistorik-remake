@@ -43,19 +43,19 @@ class Background:
     def __init__(self, screen_w: int, screen_h: int):
         self.w = screen_w
         self.h = screen_h
-        # Předgenerujeme "plamen" body na horizontu (statické)
         rng = random.Random(42)
         self.flame_pts = []
-        horizon = int(screen_h * 0.55)
+        # Horizon vysoko — hory jsou v horní třetině obrazovky
+        horizon = int(screen_h * 0.35)
         for x in range(0, screen_w + 20, 6):
-            y = horizon + rng.randint(-18, 18)
+            y = horizon + rng.randint(-12, 12)
             self.flame_pts.append((x, y))
 
-        # Horské siluety (polygony) — 3 vrstvy hloubky
+        # Horské siluety — základna je na horizontu
         self.mtns = [
-            self._gen_mountains(screen_w, horizon + 20, 120, 8, rng, seed=1),
-            self._gen_mountains(screen_w, horizon + 10, 80,  12, rng, seed=2),
-            self._gen_mountains(screen_w, horizon,      50,  18, rng, seed=3),
+            self._gen_mountains(screen_w, horizon + 10, 160, 8,  rng, seed=1),
+            self._gen_mountains(screen_w, horizon + 5,  110, 12, rng, seed=2),
+            self._gen_mountains(screen_w, horizon,       70, 18, rng, seed=3),
         ]
         self.mtn_colors = [MTN_DARK, MTN_MID, MTN_LIGHT]
 
@@ -73,18 +73,21 @@ class Background:
         return pts
 
     def draw(self, screen: pygame.Surface, camera_x: float):
-        # Obloha gradient
-        for y in range(self.h):
-            t = y / self.h
+        # Obloha — pouze horní část (nad horizontem)
+        horizon_px = int(self.h * 0.35)
+        for y in range(horizon_px):
+            t = y / horizon_px
             r = int(SKY_TOP[0] + (SKY_BOT[0] - SKY_TOP[0]) * t)
             g = int(SKY_TOP[1] + (SKY_BOT[1] - SKY_TOP[1]) * t)
             b = int(SKY_TOP[2] + (SKY_BOT[2] - SKY_TOP[2]) * t)
             pygame.draw.line(screen, (r, g, b), (0, y), (self.w, y))
 
-        # "Plameny" na horizontu — bílé zubaté linie (parallax 0)
+        # Pod horizontem — tmavě šedá skalní stěna (jako v originále)
+        pygame.draw.rect(screen, (55, 58, 68), (0, horizon_px, self.w, self.h - horizon_px))
+
+        # "Plameny" na horizontu — bílé zubaté linie
         if len(self.flame_pts) >= 2:
             pygame.draw.lines(screen, FLAME_COL, False, self.flame_pts, 3)
-            # druhá vrstva o pixel níž
             shifted = [(x, y+4) for x, y in self.flame_pts]
             pygame.draw.lines(screen, (210, 210, 190), False, shifted, 2)
 
@@ -93,7 +96,6 @@ class Background:
         for i, (pts, col, spd) in enumerate(zip(self.mtns, self.mtn_colors, speeds)):
             ox = int(camera_x * spd) % (self.w + 200)
             shifted = [(x - ox, y) for x, y in pts]
-            # opakujeme
             pygame.draw.polygon(screen, col, shifted)
             shifted2 = [(x - ox + self.w + 200, y) for x, y in pts]
             pygame.draw.polygon(screen, col, shifted2)

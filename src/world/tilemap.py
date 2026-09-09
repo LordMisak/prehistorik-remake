@@ -1,26 +1,15 @@
-# tilemap.py — jednoduchá tile mapa z 2D pole + renderer
+# tilemap.py — tile mapa + rendering přes renderer.py
 
 import pygame
-from src.core.settings import TILE_SIZE, C_GROUND, C_GRASS, C_BLACK
+from src.core.settings import TILE_SIZE
 
-
-# Typy dlaždic
 TILE_EMPTY  = 0
-TILE_SOLID  = 1   # pevná zem
-TILE_GRASS  = 2   # tráva navrchu
-TILE_SPIKE  = 3   # hroty = instant smrt
-TILE_ONEWAY = 4   # průchozí zdola
+TILE_SOLID  = 1
+TILE_GRASS  = 2
+TILE_SPIKE  = 3
+TILE_ONEWAY = 4
 
-
-# Barvy dlaždic (placeholder, nahradíme sprity)
-TILE_COLORS = {
-    TILE_SOLID:  (100, 70, 40),
-    TILE_GRASS:  (60, 140, 50),
-    TILE_SPIKE:  (180, 50, 50),
-    TILE_ONEWAY: (120, 90, 55),
-}
-
-TILE_LETHAL = {TILE_SPIKE}
+TILE_LETHAL    = {TILE_SPIKE}
 TILE_SOLID_SET = {TILE_SOLID, TILE_GRASS, TILE_ONEWAY}
 
 
@@ -35,7 +24,7 @@ class TileMap:
     def get(self, col: int, row: int) -> int:
         if 0 <= row < self.rows and 0 <= col < self.cols:
             return self.data[row][col]
-        return TILE_SOLID  # mimo mapu = pevná zeď
+        return TILE_SOLID
 
     def is_solid(self, col: int, row: int) -> bool:
         return self.get(col, row) in TILE_SOLID_SET
@@ -47,26 +36,30 @@ class TileMap:
         return self.get(col, row) == TILE_ONEWAY
 
     def draw(self, screen: pygame.Surface, camera):
-        """Kreslí pouze viditelné dlaždice (frustum culling)."""
+        from src.systems.renderer import draw_stone_tile, draw_grass_tile, draw_oneway_tile
+        ts = TILE_SIZE
         cx, cy = int(camera.offset_x), int(camera.offset_y)
-        col_start = max(0, cx // TILE_SIZE)
-        col_end   = min(self.cols, col_start + screen.get_width() // TILE_SIZE + 2)
-        row_start = max(0, cy // TILE_SIZE)
-        row_end   = min(self.rows, row_start + screen.get_height() // TILE_SIZE + 2)
+        col_start = max(0, cx // ts)
+        col_end   = min(self.cols, col_start + screen.get_width() // ts + 2)
+        row_start = max(0, cy // ts)
+        row_end   = min(self.rows, row_start + screen.get_height() // ts + 2)
 
         for row in range(row_start, row_end):
             for col in range(col_start, col_end):
                 t = self.data[row][col]
                 if t == TILE_EMPTY:
                     continue
-                color = TILE_COLORS.get(t, (200, 200, 200))
-                rx = col * TILE_SIZE - cx
-                ry = row * TILE_SIZE - cy
-                rect = pygame.Rect(rx, ry, TILE_SIZE, TILE_SIZE)
-                pygame.draw.rect(screen, color, rect)
-                # outline pro lepší čitelnost
-                pygame.draw.rect(screen, C_BLACK, rect, 1)
-
-                # Tráva — zelený proužek navrchu
+                rx = col * ts - cx
+                ry = row * ts - cy
                 if t == TILE_GRASS:
-                    pygame.draw.rect(screen, (80, 180, 60), (rx, ry, TILE_SIZE, 6))
+                    draw_grass_tile(screen, rx, ry, ts)
+                elif t == TILE_ONEWAY:
+                    draw_oneway_tile(screen, rx, ry, ts)
+                elif t in (TILE_SOLID,):
+                    draw_stone_tile(screen, rx, ry, ts)
+                elif t == TILE_SPIKE:
+                    # Hroty — červené trojúhelníky
+                    for i in range(ts // 8):
+                        bx = rx + i * 8
+                        pts = [(bx, ry+ts), (bx+4, ry+ts-12), (bx+8, ry+ts)]
+                        pygame.draw.polygon(screen, (180, 40, 40), pts)
